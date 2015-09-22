@@ -1,0 +1,74 @@
+package com.ids.es.client;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.Charset;
+
+import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.WatchedEvent;
+import org.apache.zookeeper.Watcher;
+import org.apache.zookeeper.ZooKeeper;
+import org.apache.zookeeper.Watcher.Event.KeeperState;
+
+import com.ids.es.common.factory.ConnectionFactory;
+
+public class CheckEngineStatus extends ZooKeeper{
+	
+	public CheckEngineStatus(String connectString, int sessionTimeout,
+			Watcher watcher) throws IOException {
+		super(connectString, sessionTimeout, watcher);
+	}
+	
+	static java.util.concurrent.CountDownLatch connectedSignal = new java.util.concurrent.CountDownLatch(1);
+	public static String[] serviceEngines = null;
+	public static String connectionHost;
+	public String zooEnsemble = "";
+	public static String[] modules = null;
+	public static String path = null;
+	public static String reg = "reg";
+	public static String ext = "ext";
+	public static String status = "status";
+	public String extract = "ext";
+	public static final Charset CHARSET = Charset.forName("UTF-8");
+	
+	public static void main(String[] args) throws KeeperException, InterruptedException, IOException {
+		
+		ConnectionFactory.getConnection("test");
+		serviceEngines = (ConnectionFactory.apiHost).toLowerCase().trim().split(",");
+		modules=(ConnectionFactory.modules).toLowerCase().trim().split(",");
+		System.out.println("modules : " + modules);
+		connectionHost=ConnectionFactory.zooEnsemble;
+		
+		for(String module : modules){
+			if (module.equalsIgnoreCase("text")){
+				for (String hostName : serviceEngines){
+					path = File.separator + module + File.separator + "host_" + hostName.trim() + File.separator + ext + File.separator + status; 
+					CheckEngineStatus checkStatus = new CheckEngineStatus(connectionHost, 5000, new Watcher() {
+		                public void process(WatchedEvent event) {
+		                    if (event.getState() == KeeperState.SyncConnected) {
+		                        connectedSignal.countDown();
+		                    }
+		                }
+		            });
+					byte[] data = checkStatus.getData(path, false, null);
+					String statusString = new String(data, CHARSET);
+					System.out.println(path +" : "+ statusString);
+				}
+			} else {
+				for (String hostName : serviceEngines){
+					path = File.separator + module + File.separator + "host_" + hostName.trim() + File.separator + reg + File.separator + status; 
+					CheckEngineStatus checkStatus = new CheckEngineStatus(connectionHost, 5000, new Watcher() {
+		                public void process(WatchedEvent event) {
+		                    if (event.getState() == KeeperState.SyncConnected) {
+		                        connectedSignal.countDown();
+		                    }
+		                }
+		            });
+					byte[] data = checkStatus.getData(path, false, null);
+					String statusString = new String(data, CHARSET);
+					System.out.println(path +" : "+ statusString);
+				}
+			}
+		}
+	}
+}
